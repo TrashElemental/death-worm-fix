@@ -12,13 +12,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.trashelemental.template.block.ModBlocks;
-import net.trashelemental.template.entity.ModEntities;
-import net.trashelemental.template.item.ModCreativeModeTabs;
-import net.trashelemental.template.item.ModItems;
-import net.trashelemental.template.magic.brewing.ModPotions;
-import net.trashelemental.template.magic.effects.ModMobEffects;
-import net.trashelemental.template.magic.enchantments.ModEnchantments;
 import org.slf4j.Logger;
 
 import java.util.AbstractMap;
@@ -37,15 +30,6 @@ public class template
     public template()
     {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
-
-        ModCreativeModeTabs.register(modEventBus);
-
-        ModItems.register(modEventBus);
-        ModBlocks.register(modEventBus);
-        ModEntities.register(modEventBus);
-        ModPotions.register(modEventBus);
-        ModMobEffects.register(modEventBus);
-        ModEnchantments.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
 
