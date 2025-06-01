@@ -1,4 +1,4 @@
-package net.trashelemental.template.interfaces.ice_and_fire;
+package net.trashelemental.death_worm_fix.interfaces.ice_and_fire;
 
 public interface ICustomMoveController {
     void up(boolean up);

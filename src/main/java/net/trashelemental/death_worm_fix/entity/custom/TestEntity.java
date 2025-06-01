@@ -1,4 +1,4 @@
-package net.trashelemental.template.entity.custom;
+package net.trashelemental.death_worm_fix.entity.custom;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -21,10 +21,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.trashelemental.template.interfaces.citadel.ICustomCollisions;
-import net.trashelemental.template.interfaces.ice_and_fire.ICustomMoveController;
-import net.trashelemental.template.interfaces.ice_and_fire.IGroundMount;
-import net.trashelemental.template.interfaces.ice_and_fire.ISyncMount;
+import net.trashelemental.death_worm_fix.interfaces.citadel.ICustomCollisions;
+import net.trashelemental.death_worm_fix.interfaces.ice_and_fire.ICustomMoveController;
+import net.trashelemental.death_worm_fix.interfaces.ice_and_fire.IGroundMount;
+import net.trashelemental.death_worm_fix.interfaces.ice_and_fire.ISyncMount;
 import org.jetbrains.annotations.Nullable;
 
 /**

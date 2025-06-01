@@ -1,4 +1,4 @@
-package net.trashelemental.template;
+package net.trashelemental.death_worm_fix;
 
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.api.distmarker.Dist;

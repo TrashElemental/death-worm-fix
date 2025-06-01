@@ -1,10 +1,10 @@
-package net.trashelemental.template.entity;
+package net.trashelemental.death_worm_fix.entity;
 
 import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
-import net.trashelemental.template.template;
+import net.trashelemental.death_worm_fix.template;
 
 public class ModEntities {
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =

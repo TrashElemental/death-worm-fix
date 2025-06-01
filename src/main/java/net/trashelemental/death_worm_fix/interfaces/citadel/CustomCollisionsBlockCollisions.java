@@ -1,4 +1,4 @@
-package net.trashelemental.template.interfaces.citadel;
+package net.trashelemental.death_worm_fix.interfaces.citadel;
 
 import com.google.common.collect.AbstractIterator;
 import net.minecraft.core.BlockPos;
