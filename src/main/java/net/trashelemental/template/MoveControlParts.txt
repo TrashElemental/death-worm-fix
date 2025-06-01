@@ -1,0 +1,357 @@
+/**
+ * This is everything that hos to do with how death worms move for reference.
+ */
+
+
+switchNavigator - Decides which move control to use based on whether the entity is currently in sand.
+
+private void switchNavigator(boolean inSand) {
+    if (inSand) {
+        this.moveControl = new EntityDeathWorm.SandMoveHelper();
+        this.navigation = new PathNavigateDeathWormSand(this, level());
+        this.isSandNavigator = true;
+    } else {
+        this.moveControl = new MoveControl(this);
+        this.navigation = new PathNavigateDeathWormLand(this, level());
+        this.isSandNavigator = false;
+    }
+}
+
+
+move - Just overrides method from superclass as far as I can tell.
+
+    @Override
+    public void move(@NotNull MoverType typeIn, @NotNull Vec3 pos) {
+        super.move(typeIn, pos);
+    }
+
+
+collide - Sets the death worm to use the ICustomCollisions method instead of the default.
+
+    @Override
+    public @NotNull Vec3 collide(@NotNull Vec3 vec) {
+        return ICustomCollisions.getAllowedMovementForEntity(this, vec);
+    }
+
+
+isInWall - Prevents the death worm from suffocating in sand.
+
+    @Override
+    public boolean isInWall() {
+        if (this.isInSand()) {
+            return false;
+        } else {
+            return super.isInWall();
+        }
+    }
+
+
+moveTowardsClosestSpace - Overridden to allow the death worm to not be pushed out of sand but still get pushed out of other solid blocks.
+
+    @Override
+    protected void moveTowardsClosestSpace(double x, double y, double z) {
+        PositionImpl blockpos = new PositionImpl(x, y, z);
+        Vec3i vec3i = new Vec3i((int) Math.round(blockpos.x()), (int) Math.round(blockpos.y()), (int) Math.round(blockpos.z()));
+        Vec3 vector3d = new Vec3(x - blockpos.x(), y - blockpos.y(), z - blockpos.z());
+        BlockPos.MutableBlockPos blockpos$mutable = new BlockPos.MutableBlockPos();
+        Direction direction = Direction.UP;
+        double d0 = Double.MAX_VALUE;
+
+        for (Direction direction1 : new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST, Direction.UP}) {
+            blockpos$mutable.setWithOffset(vec3i, direction1);
+            if (!this.level().getBlockState(blockpos$mutable).isCollisionShapeFullBlock(this.level(), blockpos$mutable)
+                    || level().getBlockState(blockpos$mutable).is(BlockTags.SAND)) {
+                double d1 = vector3d.get(direction1.getAxis());
+                double d2 = direction1.getAxisDirection() == Direction.AxisDirection.POSITIVE ? 1.0D - d1 : d1;
+                if (d2 < d0) {
+                    d0 = d2;
+                    direction = direction1;
+                }
+            }
+        }
+
+        float f = this.random.nextFloat() * 0.2F + 0.1F;
+        float f1 = (float) direction.getAxisDirection().getStep();
+        Vec3 vector3d1 = this.getDeltaMovement().scale(0.75D);
+        if (direction.getAxis() == Direction.Axis.X) {
+            this.setDeltaMovement(f1 * f, vector3d1.y, vector3d1.z);
+        } else if (direction.getAxis() == Direction.Axis.Y) {
+            this.setDeltaMovement(vector3d1.x, f1 * f, vector3d1.z);
+        } else if (direction.getAxis() == Direction.Axis.Z) {
+            this.setDeltaMovement(vector3d1.x, vector3d1.y, f1 * f);
+        }
+    }
+
+
+aiStep - Breaking this down into smaller parts for understandability. Removing stuff that has nothing to do with move control.
+
+    @Override
+    public void aiStep() {
+        super.aiStep();
+        prevJumpProgress = jumpProgress;
+        if (this.getWormJumping() > 0 && jumpProgress < 5F) {
+            jumpProgress++;
+        }
+        if (this.getWormJumping() == 0 && jumpProgress > 0F) {
+            jumpProgress--;
+        }
+
+^ - Deals with jumping animation progress.
+
+        if (this.isInSand() && this.horizontalCollision) {
+            this.setDeltaMovement(this.getDeltaMovement().add(0, 0.05, 0));
+        }
+
+^ - Nudges the death worm upwards when it's in sand.
+
+        if (this.getWormJumping() > 0) {
+            float f2 = (float) -((float) this.getDeltaMovement().y * (double) (180F / (float) Math.PI));
+            this.setXRot(f2);
+            if (this.isInSand() || this.onGround()) {
+                this.setWormJumping(this.getWormJumping() - 1);
+            }
+        }
+
+^ - More animation stuff, handles it angling up and down as it jumps.
+
+        if (this.tickCount == 1) {
+            initSegments(this.getScale());
+        }
+
+^ - Initializes body segments when it first spawns.
+
+        if (isInSandStrict()) {
+            this.setDeltaMovement(this.getDeltaMovement().add(0, 0.08D, 0));
+        }
+
+^ - Adds upward momentum when in sand.
+
+        if (this.getControllingPassenger() != null && this.getTarget() != null) {
+            this.getNavigation().stop();
+            this.setTarget(null);
+        }
+
+^ - Clears targeting and stops its own path navigation if it's being ridden.
+
+        if (this.getTarget() != null && this.distanceTo(this.getTarget()) < Math.min(4, 4D * getScale()) && this.getAnimation() == ANIMATION_BITE && this.getAnimationTick() == 5) {
+            float f = (float) this.getAttribute(Attributes.ATTACK_DAMAGE).getValue();
+            this.getTarget().hurt(this.level().damageSources().mobAttack(this), f);
+            this.setDeltaMovement(this.getDeltaMovement().add(0, -0.4F, 0));
+        }
+
+^ - Knocks self back a bit after it bites.
+
+    }
+
+End of aiStep.
+
+
+getSurface - Finds the first air block directly above the death worm.
+
+ public int getSurface(int x, int y, int z) {
+        BlockPos pos = new BlockPos(x, y, z);
+        while (!level().isEmptyBlock(pos)) {
+            pos = pos.above();
+        }
+        return pos.getY();
+    }
+
+
+tick - Breaking this one down for readability.
+
+    @Override
+    public void tick() {
+        super.tick();
+        refreshDimensions();
+        onUpdateParts();
+
+^ - Refreshes parts and dimensions (probably for how it grows)
+
+        if (this.attack() && this.getControllingPassenger() != null && this.getControllingPassenger() instanceof Player) {
+            LivingEntity target = DragonUtils.riderLookingAtEntity(this, this.getControllingPassenger(), 3);
+            if (this.getAnimation() != ANIMATION_BITE) {
+                this.setAnimation(ANIMATION_BITE);
+                this.playSound(this.getScale() > 3 ? IafSoundRegistry.DEATHWORM_GIANT_ATTACK : IafSoundRegistry.DEATHWORM_ATTACK, 1, 1);
+                if (this.getRandom().nextInt(3) == 0 && this.getScale() > 1) {
+                    float radius = 1.5F * this.getScale();
+                    float angle = (0.01745329251F * this.yBodyRot);
+                    double extraX = radius * Mth.sin((float) (Math.PI + angle));
+                    double extraZ = radius * Mth.cos(angle);
+                    BlockLaunchExplosion explosion = new BlockLaunchExplosion(level(), this, this.getX() + extraX, this.getY() - this.getEyeHeight(), this.getZ() + extraZ, this.getScale() * 0.75F);
+                    explosion.explode();
+                    explosion.finalizeExplosion(true);
+                }
+            }
+            if (target != null) {
+                target.hurt(this.level().damageSources().mobAttack(this), ((int) this.getAttribute(Attributes.ATTACK_DAMAGE).getValue()));
+            }
+        }
+
+^ - Handles attacking while being ridden by a player.
+
+        if (this.isInSand()) {
+            BlockPos pos = new BlockPos(this.getBlockX(), this.getSurface(this.getBlockX(), this.getBlockY(), this.getBlockZ()), this.getBlockZ()).below();
+            BlockState state = level().getBlockState(pos);
+            if (state.isSolidRender(level(), pos)) {
+                if (level().isClientSide) {
+                    this.level().addParticle(new BlockParticleOption(ParticleTypes.BLOCK, state), this.getX() + (double) (this.random.nextFloat() * this.getBbWidth() * 2.0F) - (double) this.getBbWidth(), this.getSurface((int) Math.floor(this.getX()), (int) Math.floor(this.getY()), (int) Math.floor(this.getZ())) + 0.5F, this.getZ() + (double) (this.random.nextFloat() * this.getBbWidth() * 2.0F) - (double) this.getBbWidth(), this.random.nextGaussian() * 0.02D, this.random.nextGaussian() * 0.02D, this.random.nextGaussian() * 0.02D);
+                }
+            }
+            if (this.tickCount % 10 == 0) {
+                this.playSound(SoundEvents.SAND_BREAK, 1, 0.5F);
+            }
+        }
+
+^ - Sand particles while in sand.
+
+        if (this.up() && this.onGround()) {
+            this.jumpFromGround();
+        }
+
+^ - Jumps if it's on the ground and its navigation is telling it to move up.
+
+        boolean inSand = isInSand() || this.getControllingPassenger() == null;
+        if (inSand && !this.isSandNavigator) {
+            switchNavigator(true);
+        }
+        if (!inSand && this.isSandNavigator) {
+            switchNavigator(false);
+        }
+
+^ - Switches navigation type based on whether it's in sand.
+
+        if (level().isClientSide) {
+            tail_buffer.calculateChainSwingBuffer(90, 20, 5F, this);
+        }
+
+        AnimationHandler.INSTANCE.updateAnimations(this);
+    }
+
+End tick code.
+
+
+Controls - This bit has to do with the ICustomMoveControl interface, right now it returns whether the player is pressing
+the key that should make it behave a certain way (like move up or attack.)
+
+ public boolean up() {
+        return (entityData.get(CONTROL_STATE).byteValue() & 1) == 1;
+    }
+
+    public boolean dismountIAF() {
+        return (entityData.get(CONTROL_STATE).byteValue() >> 1 & 1) == 1;
+    }
+
+    public boolean attack() {
+        return (entityData.get(CONTROL_STATE).byteValue() >> 2 & 1) == 1;
+    }
+
+    @Override
+    public void up(boolean up) {
+        setStateField(0, up);
+    }
+
+    @Override
+    public void down(boolean down) {
+
+    }
+
+    @Override
+    public void dismount(boolean dismount) {
+        setStateField(1, dismount);
+    }
+
+
+These three methods all read whether it's in sand.
+
+public boolean isSandBelow() {
+        int i = Mth.floor(this.getX());
+        int j = Mth.floor(this.getY() + 1);
+        int k = Mth.floor(this.getZ());
+        BlockPos blockpos = new BlockPos(i, j, k);
+        BlockState BlockState = this.level().getBlockState(blockpos);
+        return BlockState.is(BlockTags.SAND);
+    }
+
+    public boolean isInSand() {
+        return this.getControllingPassenger() == null && isInSandStrict();
+    }
+
+    public boolean isInSandStrict() {
+        return level().getBlockState(blockPosition()).is(BlockTags.SAND);
+    }
+
+
+canPassThrough - Allows it to pass through sand.
+
+     @Override
+     public boolean canPassThrough(BlockPos pos, BlockState state, VoxelShape shape) {
+            return level().getBlockState(pos).is(BlockTags.SAND);
+     }
+
+
+isRidingPlayer - Checks if a player is currently riding it and if the player that it's checking is the player riding it.
+
+ public boolean isRidingPlayer(Player player) {
+        return getRidingPlayer() != null && player != null && getRidingPlayer().getUUID().equals(player.getUUID());
+    }
+
+
+getRidingPlayer - Gets the player riding it.
+
+    @Override
+    @Nullable
+    public Player getRidingPlayer() {
+        if (this.getControllingPassenger() instanceof Player) {
+            return (Player) this.getControllingPassenger();
+        }
+        return null;
+    }
+
+
+getRideSpeedModifier - Speeds it up if it's in sand.
+
+    @Override
+    public double getRideSpeedModifier() {
+        return isInSand() ? 1.5F : 1F;
+    }
+
+
+processRiderY - Nudges the rider up if it's in sand.
+
+    public double processRiderY(double y) {
+        return this.isInSand() ? y + 0.2F : y;
+    }
+
+
+SandMoveHelper - A custom MoveControl class specifically for Death Worms.
+
+    public class SandMoveHelper extends MoveControl {
+        private final EntityDeathWorm worm = EntityDeathWorm.this;
+
+        public SandMoveHelper() {
+            super(EntityDeathWorm.this);
+        }
+
+        @Override
+        public void tick() {
+            if (this.operation == MoveControl.Operation.MOVE_TO) {
+                double d1 = this.wantedY - this.worm.getY();
+                double d2 = this.wantedZ - this.worm.getZ();
+                Vec3 Vector3d = new Vec3(this.wantedX - worm.getX(), this.wantedY - worm.getY(), this.wantedZ - worm.getZ());
+                double d0 = Vector3d.length();
+                if (d0 < (double) 2.5000003E-7F) {
+                    this.mob.setZza(0.0F);
+                } else {
+                    this.speedModifier = 1.0F;
+                    worm.setDeltaMovement(worm.getDeltaMovement().add(Vector3d.scale(this.speedModifier * 0.05D / d0)));
+                    Vec3 Vector3d1 = worm.getDeltaMovement();
+                    worm.setYRot(-((float) Mth.atan2(Vector3d1.x, Vector3d1.z)) * (180F / (float) Math.PI));
+                }
+
+            }
+
+^ - Moves the death worm smoothly by checking if it's currently trying to move somewhere, and stopping it if it gets
+close enough while also adjusting its rotation to be appropriate with how it's moving.
+
+        }
+    }
